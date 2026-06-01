@@ -1,0 +1,33 @@
+@import "tailwindcss";
+
+/* Tokens de marca NexoCotiza (heredados de Nexo Software) */
+@theme {
+  --color-ink: #171A1F;
+  --color-blue: #0E7BD6;
+  --color-blue-deep: #006CD8;
+  --color-celeste: #6CD8FC;
+  --color-paper: #F4F2EC;
+  --color-gray: #6A7078;
+  --color-muted: #565C64;
+  --color-line: #D9D5CB;
+  --color-danger: #DC2626;
+
+  --font-sora: "Sora", ui-sans-serif, system-ui, sans-serif;
+  --font-manrope: "Manrope", ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Fuentes de marca (instancias estáticas en /public/fonts) */
+@font-face { font-family: "Sora"; src: url("/fonts/Sora-400.ttf") format("truetype"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Sora"; src: url("/fonts/Sora-600.ttf") format("truetype"); font-weight: 600; font-display: swap; }
+@font-face { font-family: "Sora"; src: url("/fonts/Sora-700.ttf") format("truetype"); font-weight: 700; font-display: swap; }
+@font-face { font-family: "Manrope"; src: url("/fonts/Manrope-400.ttf") format("truetype"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Manrope"; src: url("/fonts/Manrope-600.ttf") format("truetype"); font-weight: 600; font-display: swap; }
+@font-face { font-family: "Manrope"; src: url("/fonts/Manrope-700.ttf") format("truetype"); font-weight: 700; font-display: swap; }
+
+html { -webkit-text-size-adjust: 100%; color-scheme: light; }
+body {
+  font-family: var(--font-manrope);
+  background: var(--color-paper);
+  color: var(--color-ink);
+  -webkit-font-smoothing: antialiased;
+}
