@@ -1,7 +1,13 @@
-# NexoCotiza
+<p align="center">
+  <img src="public/nexocotiza.png" alt="NexoCotiza" width="120" height="120" />
+</p>
 
-**Crea cotizaciones profesionales y descárgalas en PDF o Word. Gratis, sin registro.**
-Un producto de [Nexo Software](https://www.nexosoftware.cl).
+<h1 align="center">NexoCotiza</h1>
+
+<p align="center">
+  <strong>Crea cotizaciones profesionales y descárgalas en PDF o Word. Gratis, sin registro.</strong><br />
+  Un producto de <a href="https://www.nexosoftware.cl">Nexo Software</a>.
+</p>
 
 Esta es la **Fase 1**: la herramienta funciona **100% en el navegador**. No hay backend. Los datos de la empresa, el logo y el borrador se guardan en el propio navegador (IndexedDB) y la exportación a PDF/Word ocurre en el cliente: nada sale del dispositivo del usuario.
 
