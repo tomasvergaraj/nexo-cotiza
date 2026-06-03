@@ -6,7 +6,7 @@ import {
   WidthType, AlignmentType, BorderStyle, ImageRun, ShadingType, VerticalAlign, Footer,
 } from 'docx';
 import type { Company, Quote, Totals } from '../lib/types';
-import { formatCLP, formatRut, formatFechaLarga } from '../lib/format';
+import { formatCLP, formatMoneda, formatRut, formatFechaLarga, montoEnPalabras } from '../lib/format';
 import { lineSubtotal, computeTotals } from '../lib/calc';
 
 type Align = (typeof AlignmentType)[keyof typeof AlignmentType];
@@ -156,37 +156,83 @@ export async function buildDocxBlob(company: Company, quote: Quote): Promise<Blo
     return new TableRow({
       children: [
         cell([para([txt(it.descripcion || '—', { size: 9 })])], { width: 50, fill }),
-        cell([para([txt(String(it.cantidad), { size: 9 })], AlignmentType.RIGHT)], { width: 11, fill }),
-        cell([para([txt(formatCLP(it.precioUnitario), { size: 9 })], AlignmentType.RIGHT)], { width: 17, fill }),
+        cell([para([txt(`${it.cantidad}${it.unidad ? ` ${it.unidad}` : ''}`, { size: 9 })], AlignmentType.RIGHT)], { width: 11, fill }),
+        cell([para([txt(formatMoneda(it.precioUnitario, quote.moneda), { size: 9 })], AlignmentType.RIGHT)], { width: 17, fill }),
         cell([para([txt(it.descuentoPct ? `${it.descuentoPct}%` : '—', { size: 9 })], AlignmentType.RIGHT)], { width: 9, fill }),
-        cell([para([txt(formatCLP(lineSubtotal(it)), { size: 9 })], AlignmentType.RIGHT)], { width: 13, fill }),
+        cell([para([txt(formatMoneda(lineSubtotal(it, quote.moneda), quote.moneda), { size: 9 })], AlignmentType.RIGHT)], { width: 13, fill }),
       ],
     });
   });
   body.push(new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, borders: lightRows, rows: [headRow, ...itemRows] }));
 
   // --- Totales (alineados a la derecha) ---
+  const totalsRows: TableRow[] = [];
+  if (totals.descuentoGlobal > 0) {
+    totalsRows.push(new TableRow({ children: [
+      cell([para([txt('Subtotal', { color: GRAY, size: 9 })])], { width: 55 }),
+      cell([para([txt(formatMoneda(totals.subtotal, quote.moneda), { bold: true, size: 9 })], AlignmentType.RIGHT)], { width: 45 }),
+    ] }));
+    totalsRows.push(new TableRow({ children: [
+      cell([para([txt(`Descuento (${quote.descuentoGlobalPct}%)`, { color: GRAY, size: 9 })])], { width: 55 }),
+      cell([para([txt(`−${formatMoneda(totals.descuentoGlobal, quote.moneda)}`, { bold: true, size: 9 })], AlignmentType.RIGHT)], { width: 45 }),
+    ] }));
+  }
+  totalsRows.push(new TableRow({ children: [
+    cell([para([txt('Neto', { color: GRAY, size: 9 })])], { width: 55 }),
+    cell([para([txt(formatMoneda(totals.neto, quote.moneda), { bold: true, size: 9 })], AlignmentType.RIGHT)], { width: 45 }),
+  ] }));
+  totalsRows.push(new TableRow({ children: [
+    cell([para([txt(quote.ivaExento ? 'IVA (exento)' : `IVA (${quote.ivaPct}%)`, { color: GRAY, size: 9 })])], { width: 55 }),
+    cell([para([txt(formatMoneda(totals.iva, quote.moneda), { bold: true, size: 9 })], AlignmentType.RIGHT)], { width: 45 }),
+  ] }));
+  totalsRows.push(new TableRow({ children: [
+    cell([para([txt('TOTAL', { bold: true, color: WHITE, size: 11 })])], { width: 55, fill: BLUE }),
+    cell([para([txt(formatMoneda(totals.total, quote.moneda), { bold: true, color: WHITE, size: 12 })], AlignmentType.RIGHT)], { width: 45, fill: BLUE }),
+  ] }));
+  if (totals.abono > 0) {
+    totalsRows.push(new TableRow({ children: [
+      cell([para([txt('Abono', { color: GRAY, size: 9 })])], { width: 55 }),
+      cell([para([txt(`−${formatMoneda(totals.abono, quote.moneda)}`, { bold: true, size: 9 })], AlignmentType.RIGHT)], { width: 45 }),
+    ] }));
+    totalsRows.push(new TableRow({ children: [
+      cell([para([txt('Saldo', { bold: true, color: INK, size: 9 })])], { width: 55 }),
+      cell([para([txt(formatMoneda(totals.saldo, quote.moneda), { bold: true, size: 9 })], AlignmentType.RIGHT)], { width: 45 }),
+    ] }));
+  }
   const totalsTable = new Table({
     width: { size: 46, type: WidthType.PERCENTAGE },
     alignment: AlignmentType.RIGHT,
     borders: noBorders,
-    rows: [
-      new TableRow({ children: [
-        cell([para([txt('Neto', { color: GRAY, size: 9 })])], { width: 55 }),
-        cell([para([txt(formatCLP(totals.neto), { bold: true, size: 9 })], AlignmentType.RIGHT)], { width: 45 }),
-      ] }),
-      new TableRow({ children: [
-        cell([para([txt(quote.ivaExento ? 'IVA (exento)' : `IVA (${quote.ivaPct}%)`, { color: GRAY, size: 9 })])], { width: 55 }),
-        cell([para([txt(formatCLP(totals.iva), { bold: true, size: 9 })], AlignmentType.RIGHT)], { width: 45 }),
-      ] }),
-      new TableRow({ children: [
-        cell([para([txt('TOTAL', { bold: true, color: WHITE, size: 11 })])], { width: 55, fill: BLUE }),
-        cell([para([txt(formatCLP(totals.total), { bold: true, color: WHITE, size: 12 })], AlignmentType.RIGHT)], { width: 45, fill: BLUE }),
-      ] }),
-    ],
+    rows: totalsRows,
   });
   body.push(new Paragraph({ text: '', spacing: { after: 100 } }));
   body.push(totalsTable);
+
+  // Equivalencia en CLP (cuando la moneda es UF/USD y hay valor de conversión).
+  if (quote.moneda !== 'CLP' && quote.valorMoneda > 0) {
+    body.push(para([txt(`≈ ${formatCLP(totals.total * quote.valorMoneda)} CLP`, { color: GRAY, size: 8 })], AlignmentType.RIGHT, 0));
+  }
+
+  // Total en palabras.
+  body.push(para([txt(montoEnPalabras(totals.total, quote.moneda), { color: GRAY, size: 8 })], AlignmentType.RIGHT, 0));
+
+  // --- Datos de pago / transferencia ---
+  const pago: Array<[string, string]> = [];
+  if (company.pagoIncluir) {
+    if (company.pagoBanco) pago.push(['Banco', company.pagoBanco]);
+    if (company.pagoTipoCuenta) pago.push(['Tipo de cuenta', company.pagoTipoCuenta]);
+    if (company.pagoNumero) pago.push(['N° de cuenta', company.pagoNumero]);
+    if (company.pagoTitular) pago.push(['Titular', company.pagoTitular]);
+    if (company.pagoRut) pago.push(['RUT', formatRut(company.pagoRut)]);
+    if (company.pagoEmail) pago.push(['Email', company.pagoEmail]);
+  }
+  if (pago.length) {
+    body.push(new Paragraph({ text: '', spacing: { after: 220 } }));
+    body.push(para([txt('DATOS PARA TRANSFERENCIA', { bold: true, size: 7.5, color: BLUE })], AlignmentType.LEFT, 40));
+    for (const [label, value] of pago) {
+      body.push(para([txt(`${label}: `, { color: GRAY, size: 9 }), txt(value, { color: INK, size: 9 })]));
+    }
+  }
 
   // --- Notas y condiciones ---
   if (quote.notas) {

@@ -1,6 +1,6 @@
 ---
 import Base from '../layouts/Base.astro';
-import QuoteEditor from '../components/QuoteEditor.tsx';
+import App from '../components/App.tsx';
 ---
 
 <Base>
@@ -82,7 +82,24 @@ import QuoteEditor from '../components/QuoteEditor.tsx';
 
   <!-- Editor (corre 100% en el navegador) -->
   <main class="pt-4">
-    <QuoteEditor client:only="react" />
+    <!--
+      Skeleton estático: se pinta al instante (sin JS) para evitar el vacío
+      mientras descarga/ejecuta el bundle de React. QuoteEditor lo elimina al montar.
+    -->
+    <div id="boot-skeleton" class="mx-auto max-w-[1280px] px-4 pb-16">
+      <div class="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,500px)]">
+        <div class="flex flex-col gap-5">
+          <div class="h-44 animate-pulse rounded-xl border border-line bg-white/60 shadow-sm"></div>
+          <div class="h-44 animate-pulse rounded-xl border border-line bg-white/60 shadow-sm"></div>
+          <div class="h-44 animate-pulse rounded-xl border border-line bg-white/60 shadow-sm"></div>
+          <div class="h-44 animate-pulse rounded-xl border border-line bg-white/60 shadow-sm"></div>
+        </div>
+        <div class="hidden lg:block">
+          <div class="sticky top-[68px] h-[calc(100vh-84px)] animate-pulse rounded-xl border border-line bg-white/60 shadow-sm"></div>
+        </div>
+      </div>
+    </div>
+    <App client:only="react" />
   </main>
 
   <!-- Footer -->

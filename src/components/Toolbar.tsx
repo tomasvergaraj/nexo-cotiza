@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Download, FileText, FileType2, ChevronDown, Loader2 } from 'lucide-react';
+import { Download, FileText, FileType2, Printer, ChevronDown, Loader2 } from 'lucide-react';
 import type { Company, Quote } from '../lib/types';
 import { toast } from '../lib/toast';
 import { Button } from './ui';
@@ -16,7 +16,7 @@ function slug(s: string): string {
 }
 
 export default function Toolbar({ company, quote }: Props) {
-  const [busy, setBusy] = useState<'pdf' | 'docx' | null>(null);
+  const [busy, setBusy] = useState<'pdf' | 'docx' | 'print' | null>(null);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const base = `Cotizacion-${quote.folio || 's-n'}${quote.cliente.nombre ? '-' + slug(quote.cliente.nombre) : ''}`;
@@ -31,21 +31,59 @@ export default function Toolbar({ company, quote }: Props) {
     return () => { document.removeEventListener('mousedown', onDoc); document.removeEventListener('keydown', onKey); };
   }, [open]);
 
+  // El motor PDF se carga solo al exportar/imprimir (no en la carga inicial).
+  async function buildPdfBlob(): Promise<Blob> {
+    const [{ pdf }, { QuotePdf }] = await Promise.all([
+      import('@react-pdf/renderer'),
+      import('../pdf/QuotePdf'),
+    ]);
+    return pdf(<QuotePdf company={company} quote={quote} />).toBlob();
+  }
+
   async function downloadPdf() {
     try {
       setBusy('pdf');
-      // El motor PDF se carga solo al exportar (no en la carga inicial).
-      const [{ pdf }, { QuotePdf }, { saveAs }] = await Promise.all([
-        import('@react-pdf/renderer'),
-        import('../pdf/QuotePdf'),
-        import('file-saver'),
-      ]);
-      const blob = await pdf(<QuotePdf company={company} quote={quote} />).toBlob();
+      const [blob, { saveAs }] = await Promise.all([buildPdfBlob(), import('file-saver')]);
       saveAs(blob, `${base}.pdf`);
       toast.success('PDF descargado.');
     } catch (err) {
       console.error(err);
       toast.error('No se pudo generar el PDF. Inténtalo de nuevo.');
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  // Imprime el MISMO PDF de la vista previa (idéntico), vía un iframe oculto.
+  async function printPdf() {
+    try {
+      setBusy('print');
+      const blob = await buildPdfBlob();
+      const url = URL.createObjectURL(blob);
+      const iframe = document.createElement('iframe');
+      iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;';
+      let cleaned = false;
+      const cleanup = () => { if (cleaned) return; cleaned = true; URL.revokeObjectURL(url); iframe.remove(); };
+      iframe.onload = () => {
+        const w = iframe.contentWindow;
+        if (!w) { cleanup(); return; }
+        // Esperamos a que el visor pinte el PDF antes de abrir el diálogo.
+        setTimeout(() => {
+          try {
+            w.focus();
+            w.addEventListener('afterprint', cleanup);
+            w.print();
+          } catch {
+            window.open(url, '_blank', 'noopener'); // respaldo: abrir en pestaña
+          }
+          setTimeout(cleanup, 60000); // respaldo de limpieza
+        }, 300);
+      };
+      iframe.src = url;
+      document.body.appendChild(iframe);
+    } catch (err) {
+      console.error(err);
+      toast.error('No se pudo preparar la impresión.');
     } finally {
       setBusy(null);
     }
@@ -89,6 +127,10 @@ export default function Toolbar({ company, quote }: Props) {
           <div className="h-px bg-line" />
           <button role="menuitem" onClick={() => { setOpen(false); downloadDocx(); }} className={item}>
             <FileType2 className="h-4 w-4 text-blue" /> Descargar Word
+          </button>
+          <div className="h-px bg-line" />
+          <button role="menuitem" onClick={() => { setOpen(false); printPdf(); }} className={item}>
+            <Printer className="h-4 w-4 text-blue" /> Imprimir / Guardar PDF
           </button>
         </div>
       )}

@@ -4,11 +4,14 @@ import { todayISO, addDaysISO } from './format';
 
 let _id = 0;
 export const newId = () => `it_${Date.now().toString(36)}_${(_id++).toString(36)}`;
+/** Id único para un registro del historial. */
+export const newQuoteId = () => `q_${Date.now().toString(36)}_${(_id++).toString(36)}`;
 
 export const emptyItem = (): QuoteItem => ({
   id: newId(),
   descripcion: '',
   cantidad: 1,
+  unidad: '',
   precioUnitario: 0,
   descuentoPct: 0,
 });
@@ -21,8 +24,12 @@ export function newQuote(folio = ''): Quote {
     fecha,
     validaHasta: addDaysISO(fecha, 30),
     moneda: 'CLP',
+    valorMoneda: 0,
+    valorMonedaFecha: '',
     ivaPct: 19,
     ivaExento: false,
+    descuentoGlobalPct: 0,
+    abono: 0,
     notas: '',
     condiciones:
       'Valores en pesos chilenos (CLP). Precios válidos hasta la fecha indicada. ' +
@@ -44,9 +51,9 @@ export function demoQuote(): Quote {
     direccion: 'Av. O’Higgins 1234, Quillota',
   };
   q.items = [
-    { id: newId(), descripcion: 'Desarrollo de sitio web institucional (5 secciones)', cantidad: 1, precioUnitario: 850000, descuentoPct: 0 },
-    { id: newId(), descripcion: 'Diseño de identidad visual y logotipo', cantidad: 1, precioUnitario: 320000, descuentoPct: 10 },
-    { id: newId(), descripcion: 'Mantención mensual y hosting', cantidad: 6, precioUnitario: 45000, descuentoPct: 0 },
+    { id: newId(), descripcion: 'Desarrollo de sitio web institucional (5 secciones)', cantidad: 1, unidad: 'un', precioUnitario: 850000, descuentoPct: 0 },
+    { id: newId(), descripcion: 'Diseño de identidad visual y logotipo', cantidad: 1, unidad: 'un', precioUnitario: 320000, descuentoPct: 10 },
+    { id: newId(), descripcion: 'Mantención mensual y hosting', cantidad: 6, unidad: 'mes', precioUnitario: 45000, descuentoPct: 0 },
   ];
   q.notas = 'Incluye 2 rondas de ajustes. Plazo estimado de entrega: 4 semanas.';
   return q;

@@ -1,6 +1,6 @@
 import { Document, Page, Text, View, Image, StyleSheet, Font } from '@react-pdf/renderer';
 import type { Company, Quote, Totals } from '../lib/types';
-import { formatCLP, formatRut, formatFechaLarga } from '../lib/format';
+import { formatCLP, formatMoneda, formatRut, formatFechaLarga, montoEnPalabras } from '../lib/format';
 import { lineSubtotal, computeTotals } from '../lib/calc';
 
 // Fuentes de marca (estáticas en /public/fonts) — se cargan en el navegador.
@@ -66,6 +66,12 @@ const s = StyleSheet.create({
   totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 6, paddingTop: 8, paddingHorizontal: 10, paddingBottom: 8, backgroundColor: BLUE, borderRadius: 4 },
   totalLabel: { fontFamily: 'Sora', fontWeight: 700, fontSize: 11, color: '#FFFFFF' },
   totalValue: { fontFamily: 'Sora', fontWeight: 700, fontSize: 13, color: '#FFFFFF' },
+  equiv: { color: GRAY, fontSize: 8, marginTop: 4, textAlign: 'right' },
+  palabras: { color: GRAY, fontSize: 8, marginTop: 6, textAlign: 'right' },
+  // Datos de pago
+  pay: { marginTop: 22, borderWidth: 1, borderColor: LINE, borderRadius: 4, backgroundColor: SOFT, padding: 10 },
+  payLine: { color: INK, marginTop: 2 },
+  payLabel: { color: GRAY },
   // Notas
   notes: { marginTop: 22 },
   notesText: { color: INK, marginTop: 3, lineHeight: 1.4 },
@@ -94,8 +100,22 @@ export interface QuotePdfProps {
   quote: Quote;
 }
 
+/** Líneas del bloque de datos de pago (solo las que tengan valor). */
+function pagoLines(c: Company): Array<[string, string]> {
+  const out: Array<[string, string]> = [];
+  if (c.pagoBanco) out.push(['Banco', c.pagoBanco]);
+  if (c.pagoTipoCuenta) out.push(['Tipo de cuenta', c.pagoTipoCuenta]);
+  if (c.pagoNumero) out.push(['N° de cuenta', c.pagoNumero]);
+  if (c.pagoTitular) out.push(['Titular', c.pagoTitular]);
+  if (c.pagoRut) out.push(['RUT', formatRut(c.pagoRut)]);
+  if (c.pagoEmail) out.push(['Email', c.pagoEmail]);
+  return out;
+}
+
 export function QuotePdf({ company, quote }: QuotePdfProps) {
   const totals: Totals = computeTotals(quote);
+  const equivCLP = quote.moneda !== 'CLP' && quote.valorMoneda > 0 ? totals.total * quote.valorMoneda : 0;
+  const pago = company.pagoIncluir ? pagoLines(company) : [];
   return (
     <Document title={`Cotización ${quote.folio}`} author={company.razonSocial || 'NexoCotiza'}>
       <Page size="A4" style={s.page} wrap>
@@ -151,30 +171,69 @@ export function QuotePdf({ company, quote }: QuotePdfProps) {
         {quote.items.map((it, i) => (
           <View key={it.id} style={i % 2 === 1 ? [s.row, s.rowAlt] : s.row} wrap={false}>
             <Text style={s.cDesc}>{it.descripcion || '—'}</Text>
-            <Text style={[s.cQty, s.num]}>{it.cantidad}</Text>
-            <Text style={[s.cPrice, s.num]}>{formatCLP(it.precioUnitario)}</Text>
+            <Text style={[s.cQty, s.num]}>{it.cantidad}{it.unidad ? ` ${it.unidad}` : ''}</Text>
+            <Text style={[s.cPrice, s.num]}>{formatMoneda(it.precioUnitario, quote.moneda)}</Text>
             <Text style={[s.cDisc, s.num]}>{it.descuentoPct ? `${it.descuentoPct}%` : '—'}</Text>
-            <Text style={[s.cSub, s.num]}>{formatCLP(lineSubtotal(it))}</Text>
+            <Text style={[s.cSub, s.num]}>{formatMoneda(lineSubtotal(it, quote.moneda), quote.moneda)}</Text>
           </View>
         ))}
 
-        {/* Totales */}
-        <View style={s.totalsWrap}>
+        {/* Totales: bloque indivisible (no se parte entre páginas), de modo que
+            el salto, si lo hay, caiga después del monto en palabras. */}
+        <View style={s.totalsWrap} wrap={false}>
           <View style={s.totals}>
+            {totals.descuentoGlobal > 0 ? (
+              <View>
+                <View style={s.tRow}>
+                  <Text style={s.tLabel}>Subtotal</Text>
+                  <Text style={[s.tValue, s.num]}>{formatMoneda(totals.subtotal, quote.moneda)}</Text>
+                </View>
+                <View style={s.tRow}>
+                  <Text style={s.tLabel}>Descuento ({quote.descuentoGlobalPct}%)</Text>
+                  <Text style={[s.tValue, s.num]}>−{formatMoneda(totals.descuentoGlobal, quote.moneda)}</Text>
+                </View>
+              </View>
+            ) : null}
             <View style={s.tRow}>
               <Text style={s.tLabel}>Neto</Text>
-              <Text style={[s.tValue, s.num]}>{formatCLP(totals.neto)}</Text>
+              <Text style={[s.tValue, s.num]}>{formatMoneda(totals.neto, quote.moneda)}</Text>
             </View>
             <View style={s.tRow}>
               <Text style={s.tLabel}>{quote.ivaExento ? 'IVA (exento)' : `IVA (${quote.ivaPct}%)`}</Text>
-              <Text style={[s.tValue, s.num]}>{formatCLP(totals.iva)}</Text>
+              <Text style={[s.tValue, s.num]}>{formatMoneda(totals.iva, quote.moneda)}</Text>
             </View>
             <View style={s.totalRow}>
               <Text style={s.totalLabel}>TOTAL</Text>
-              <Text style={[s.totalValue, s.num]}>{formatCLP(totals.total)}</Text>
+              <Text style={[s.totalValue, s.num]}>{formatMoneda(totals.total, quote.moneda)}</Text>
             </View>
+            {equivCLP > 0 ? <Text style={s.equiv}>≈ {formatCLP(equivCLP)} CLP</Text> : null}
+            {totals.abono > 0 ? (
+              <View style={{ marginTop: 6 }}>
+                <View style={s.tRow}>
+                  <Text style={s.tLabel}>Abono</Text>
+                  <Text style={[s.tValue, s.num]}>−{formatMoneda(totals.abono, quote.moneda)}</Text>
+                </View>
+                <View style={s.tRow}>
+                  <Text style={[s.tLabel, { color: INK, fontWeight: 700 }]}>Saldo</Text>
+                  <Text style={[s.tValue, s.num]}>{formatMoneda(totals.saldo, quote.moneda)}</Text>
+                </View>
+              </View>
+            ) : null}
+            <Text style={s.palabras}>{montoEnPalabras(totals.total, quote.moneda)}</Text>
           </View>
         </View>
+
+        {/* Datos de pago / transferencia */}
+        {pago.length ? (
+          <View style={s.pay} wrap={false}>
+            <Text style={s.eyebrow}>Datos para transferencia</Text>
+            {pago.map(([label, value], i) => (
+              <Text key={i} style={s.payLine}>
+                <Text style={s.payLabel}>{label}: </Text>{value}
+              </Text>
+            ))}
+          </View>
+        ) : null}
 
         {/* Notas y condiciones */}
         {(quote.notas || quote.condiciones) ? (

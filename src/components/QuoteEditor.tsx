@@ -1,16 +1,24 @@
-import { lazy, Suspense, useEffect, useRef, useState } from 'react';
-import { Eye, X } from 'lucide-react';
-import type { Company, Quote } from '../lib/types';
+import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { Eye, X, Save, FileClock } from 'lucide-react';
+import type { Company, Quote, QuoteStatus, SavedQuote } from '../lib/types';
 import { emptyCompany } from '../lib/types';
-import { newQuote, demoQuote } from '../lib/sample';
+import { newQuote, demoQuote, newQuoteId } from '../lib/sample';
 import { computeTotals } from '../lib/calc';
-import { loadCompany, saveCompany, loadDraft, saveDraft, clearDraft, nextFolioSeq } from '../lib/storage';
+import {
+  loadCompany, saveCompany, loadDraft, saveDraft, clearDraft, nextFolioSeq,
+  exportBackup, isBackup, setFolioSeq, putQuote, restoreQuotes, restoreCatalog, requestPersistence, clearAllData,
+} from '../lib/storage';
+import { toast } from '../lib/toast';
+import { readShareFromHash, clearShareHash } from '../lib/share';
 import CompanyPanel from './CompanyPanel';
 import ClientPanel from './ClientPanel';
 import ItemsTable from './ItemsTable';
 import DetailsPanel from './DetailsPanel';
 import Toolbar from './Toolbar';
+import ShareMenu from './ShareMenu';
+import InstallButton from './InstallButton';
 import Toaster from './Toaster';
+import HistoryModal from './HistoryModal';
 import { Button } from './ui';
 
 // El visor (y con él el motor PDF ~600 KB) se carga aparte, no en el bundle inicial.
@@ -34,6 +42,14 @@ export default function QuoteEditor() {
   const [ready, setReady] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const firstSave = useRef(true);
+  const importRef = useRef<HTMLInputElement>(null);
+  // Vínculo con el historial: el registro que estamos editando (si lo hay).
+  const [current, setCurrent] = useState<{ id: string; estado: QuoteStatus } | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
+  const [historyReload, setHistoryReload] = useState(0);
+  // ¿Hay cambios sin guardar respecto al registro abierto del historial?
+  const [dirty, setDirty] = useState(false);
+  const skipDirty = useRef(true); // ignora el cambio de estado tras cargar/abrir/guardar
 
   // Crea una cotización nueva aplicando las condiciones por defecto de la empresa.
   function freshQuote(c: Company, folio = ''): Quote {
@@ -42,17 +58,40 @@ export default function QuoteEditor() {
     return q;
   }
 
-  // Carga inicial desde el navegador (empresa guardada + borrador en curso)
+  // Quita el skeleton estático del HTML en cuanto React monta (su propio
+  // skeleton `!ready` toma el relevo sin parpadeo).
+  useLayoutEffect(() => {
+    document.getElementById('boot-skeleton')?.remove();
+  }, []);
+
+  // Pide al navegador no purgar los datos por espacio (best-effort).
+  useEffect(() => { requestPersistence(); }, []);
+
+  // Carga inicial desde el navegador (empresa guardada + borrador en curso).
+  // Si la URL trae una cotización compartida (#q=…), esa tiene prioridad.
   useEffect(() => {
     let active = true;
     (async () => {
+      const shared = await readShareFromHash();
+      if (!active) return;
+      if (shared) {
+        setCompany({ ...emptyCompany(), ...shared.c });
+        setQuote({ ...newQuote(), ...shared.q });
+        setCurrent(null);
+        clearShareHash();
+        setReady(true);
+        toast.success('Cotización compartida cargada.');
+        return;
+      }
       const [c, d] = await Promise.all([loadCompany(), loadDraft()]);
       if (!active) return;
       // Fusiona con los defaults: empresas guardadas antes pueden no traer campos nuevos.
       const comp = c ? { ...emptyCompany(), ...c } : emptyCompany();
       if (c) setCompany(comp);
       if (d) {
-        setQuote(d);
+        // Fusiona con los defaults: borradores guardados antes pueden no traer
+        // campos nuevos (p. ej. moneda/valorMoneda).
+        setQuote({ ...newQuote(), ...d });
       } else {
         const seq = await nextFolioSeq();
         setQuote(freshQuote(comp, pad4(seq)));
@@ -61,6 +100,14 @@ export default function QuoteEditor() {
     })();
     return () => { active = false; };
   }, []);
+
+  // Marca cambios sin guardar. El primer cambio tras cargar/abrir/guardar/nueva
+  // se ignora (es el propio set programático, no una edición del usuario).
+  useEffect(() => {
+    if (!ready) return;
+    if (skipDirty.current) { skipDirty.current = false; return; }
+    setDirty(true);
+  }, [quote, company, ready]);
 
   // Autoguardado del borrador (local). La empresa se guarda con el botón.
   useEffect(() => {
@@ -83,11 +130,104 @@ export default function QuoteEditor() {
     await clearDraft();
     const seq = await nextFolioSeq();
     setQuote(freshQuote(company, pad4(seq)));
+    setCurrent(null);
+    skipDirty.current = true; setDirty(false);
+  }
+
+  // --- Historial ---
+
+  // Guarda la cotización actual en el historial. Si ya provenía de un registro,
+  // lo actualiza; si no, crea uno nuevo y deja el editor vinculado a él.
+  async function handleSaveToHistory() {
+    const id = current?.id ?? newQuoteId();
+    const estado: QuoteStatus = current?.estado ?? 'borrador';
+    const rec: SavedQuote = { id, estado, updatedAt: new Date().toISOString(), company, quote };
+    await putQuote(rec);
+    setCurrent({ id, estado });
+    setDirty(false);
+    setHistoryReload((n) => n + 1);
+    toast.success(current ? 'Cotización actualizada en el historial.' : 'Cotización guardada en el historial.');
+  }
+
+  // Abre un registro del historial en el editor (pasa a ser el borrador vivo).
+  function handleOpenFromHistory(rec: SavedQuote) {
+    setCompany({ ...emptyCompany(), ...rec.company });
+    setQuote({ ...newQuote(), ...rec.quote });
+    setCurrent({ id: rec.id, estado: rec.estado });
+    skipDirty.current = true; setDirty(false);
+    setShowHistory(false);
+    toast.success('Cotización abierta.');
+  }
+
+  // Borra todos los datos locales (privacidad) y deja el editor en blanco.
+  async function handleClearAll() {
+    if (!confirm('¿Borrar TODOS tus datos de este navegador (empresa, borrador, historial y catálogo)? No se puede deshacer.')) return;
+    await clearAllData();
+    const fresh = emptyCompany();
+    setCompany(fresh);
+    setQuote(freshQuote(fresh));
+    setCurrent(null);
+    skipDirty.current = true; setDirty(false);
+    setHistoryReload((n) => n + 1);
+    setShowHistory(false);
+    toast.success('Datos borrados de este navegador.');
+  }
+
+  // Sincroniza el estado si se cambió desde el modal para el registro abierto.
+  function handleStatusSync(id: string, estado: QuoteStatus) {
+    setCurrent((c) => (c && c.id === id ? { ...c, estado } : c));
+  }
+
+  // Respaldo: descarga un JSON con la empresa, el borrador y el correlativo.
+  // Usa el estado en memoria (lo que el usuario ve ahora mismo).
+  async function handleExport() {
+    const backup = await exportBackup();
+    backup.company = company;
+    backup.draft = quote;
+    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `nexocotiza-respaldo-${quote.folio || 's-n'}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success('Respaldo descargado.');
+  }
+
+  async function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // permite reimportar el mismo archivo
+    if (!file) return;
+    try {
+      const data = JSON.parse(await file.text());
+      if (!isBackup(data)) { toast.error('El archivo no es un respaldo de NexoCotiza.'); return; }
+      if (!confirm('¿Restaurar este respaldo? Reemplazará los datos actuales en este navegador.')) return;
+      // Fusiona con los defaults por compatibilidad con respaldos antiguos.
+      const comp = data.company ? { ...emptyCompany(), ...data.company } : emptyCompany();
+      const draft = data.draft ? { ...newQuote(), ...data.draft } : freshQuote(comp);
+      setCompany(comp);
+      setQuote(draft);
+      setCurrent(null);
+      skipDirty.current = true; setDirty(false);
+      await Promise.all([
+        saveCompany(comp),
+        saveDraft(draft),
+        setFolioSeq(data.folioSeq || 0),
+        restoreQuotes(Array.isArray(data.quotes) ? data.quotes : []),
+        restoreCatalog(Array.isArray(data.catalog) ? data.catalog : []),
+      ]);
+      setHistoryReload((n) => n + 1);
+      toast.success('Respaldo restaurado.');
+    } catch {
+      toast.error('No se pudo leer el archivo de respaldo.');
+    }
   }
 
   function handleDemo() {
     if (hasContent(quote) && !confirm('¿Cargar el ejemplo? Reemplazará la cotización actual.')) return;
     setQuote(demoQuote());
+    setCurrent(null);
+    skipDirty.current = true; setDirty(false);
     if (!company.razonSocial) {
       setCompany({
         ...emptyCompany(),
@@ -128,11 +268,24 @@ export default function QuoteEditor() {
       {/* Barra de acciones */}
       <div className="sticky top-0 z-10 -mx-4 mb-6 border-b border-line bg-paper/85 px-4 py-3 backdrop-blur">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button variant="ghost" onClick={handleDemo}>Ver ejemplo</Button>
             <Button variant="ghost" onClick={handleNew}>Nueva</Button>
+            <span className="hidden h-5 w-px bg-line sm:inline" />
+            <Button onClick={handleSaveToHistory} title="Guardar esta cotización en el historial">
+              <Save className="h-4 w-4" /> {current ? 'Actualizar' : 'Guardar'}
+              {current && dirty && <span className="ml-0.5 h-2 w-2 rounded-full bg-[#D97706]" title="Cambios sin guardar" aria-label="Cambios sin guardar" />}
+            </Button>
+            <Button variant="ghost" onClick={() => setShowHistory(true)} title="Ver el historial de cotizaciones">
+              <FileClock className="h-4 w-4" /> Historial
+            </Button>
+            <InstallButton />
+            <input ref={importRef} type="file" accept="application/json,.json" onChange={handleImportFile} className="hidden" />
           </div>
-          <Toolbar company={company} quote={quote} />
+          <div className="flex items-center gap-2">
+            <ShareMenu company={company} quote={quote} />
+            <Toolbar company={company} quote={quote} />
+          </div>
         </div>
       </div>
 
@@ -141,7 +294,7 @@ export default function QuoteEditor() {
         <div className="flex flex-col gap-5">
           <CompanyPanel company={company} onChange={setCompany} onSaveLocal={handleSaveCompany} saved={savedBadge} />
           <ClientPanel client={quote.cliente} onChange={(cliente) => setQuote({ ...quote, cliente })} />
-          <ItemsTable items={quote.items} onChange={(items) => setQuote({ ...quote, items })} />
+          <ItemsTable items={quote.items} moneda={quote.moneda} onChange={(items) => setQuote({ ...quote, items })} />
           <DetailsPanel quote={quote} totals={totals} onChange={setQuote} />
         </div>
 
@@ -162,7 +315,7 @@ export default function QuoteEditor() {
 
       {showPreview && (
         <div className="fixed inset-0 z-50 flex flex-col bg-black/40 p-3 lg:hidden" onClick={() => setShowPreview(false)}>
-          <div className="mx-auto flex h-full w-full max-w-[640px] flex-col" onClick={(e) => e.stopPropagation()}>
+          <div role="dialog" aria-modal="true" aria-label="Vista previa" className="mx-auto flex h-full w-full max-w-[640px] flex-col" onClick={(e) => e.stopPropagation()}>
             <div className="mb-2 flex justify-end">
               <Button variant="soft" onClick={() => setShowPreview(false)}>
                 <X className="h-4 w-4" /> Cerrar
@@ -176,6 +329,18 @@ export default function QuoteEditor() {
           </div>
         </div>
       )}
+
+      <HistoryModal
+        open={showHistory}
+        currentId={current?.id ?? null}
+        reloadKey={historyReload}
+        onClose={() => setShowHistory(false)}
+        onOpen={handleOpenFromHistory}
+        onStatusChange={handleStatusSync}
+        onExport={handleExport}
+        onImportClick={() => importRef.current?.click()}
+        onClearAll={handleClearAll}
+      />
 
       <Toaster />
     </div>

@@ -145,6 +145,46 @@ export default function CompanyPanel({ company, onChange, onSaveLocal, saved }: 
           />
         </Field>
       </div>
+
+      {/* Datos de pago / transferencia */}
+      <div className="mt-5 border-t border-line pt-4">
+        <label className="flex items-center gap-2 text-[13px] font-semibold text-ink">
+          <input
+            type="checkbox"
+            checked={company.pagoIncluir}
+            onChange={(e) => set({ pagoIncluir: e.target.checked })}
+            className="h-4 w-4 accent-blue"
+          />
+          Incluir datos de pago en el documento
+        </label>
+        {company.pagoIncluir && (
+          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Field label="Banco">
+              <Input value={company.pagoBanco} onChange={(e) => set({ pagoBanco: e.target.value })} placeholder="Banco de Chile" />
+            </Field>
+            <Field label="Tipo de cuenta">
+              <Input value={company.pagoTipoCuenta} onChange={(e) => set({ pagoTipoCuenta: e.target.value })} placeholder="Cuenta corriente" />
+            </Field>
+            <Field label="N° de cuenta">
+              <Input value={company.pagoNumero} onChange={(e) => set({ pagoNumero: e.target.value })} placeholder="000-12345678-90" />
+            </Field>
+            <Field label="Titular">
+              <Input value={company.pagoTitular} onChange={(e) => set({ pagoTitular: e.target.value })} placeholder="Nexo Software SpA" />
+            </Field>
+            <Field label="RUT titular">
+              <Input
+                value={company.pagoRut}
+                onChange={(e) => set({ pagoRut: e.target.value })}
+                onBlur={(e) => e.target.value && set({ pagoRut: formatRut(e.target.value) })}
+                placeholder="76.123.456-7"
+              />
+            </Field>
+            <Field label="Email para comprobante">
+              <Input value={company.pagoEmail} onChange={(e) => set({ pagoEmail: e.target.value })} placeholder="pagos@empresa.cl" />
+            </Field>
+          </div>
+        )}
+      </div>
     </Section>
   );
 }

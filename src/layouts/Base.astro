@@ -43,5 +43,26 @@ const ogImage = Astro.site ? new URL('/og-image.png', Astro.site).href : '/og-im
   </head>
   <body>
     <slot />
+
+    <script>
+      // Captura el evento de instalación lo antes posible (puede dispararse
+      // antes de que React monte) y lo expone para el botón "Instalar app".
+      window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        (window as any).__deferredInstallPrompt = e;
+        window.dispatchEvent(new Event('pwa-installable'));
+      });
+      window.addEventListener('appinstalled', () => {
+        (window as any).__deferredInstallPrompt = null;
+        window.dispatchEvent(new Event('pwa-installed'));
+      });
+
+      // Registra el service worker (solo en producción para no interferir con HMR).
+      if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js').catch(() => {});
+        });
+      }
+    </script>
   </body>
 </html>

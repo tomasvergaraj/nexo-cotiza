@@ -32,6 +32,10 @@ export function TextArea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement
   return <textarea {...props} className={`${inputBase} min-h-[72px] resize-y ${props.className ?? ''}`} />;
 }
 
+export function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
+  return <select {...props} className={`${inputBase} cursor-pointer ${props.className ?? ''}`} />;
+}
+
 type BtnProps = React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'primary' | 'ghost' | 'soft' };
 export function Button({ variant = 'soft', className = '', children, ...rest }: BtnProps) {
   const styles =
