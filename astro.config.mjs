@@ -17,7 +17,7 @@ export default defineConfig({
     // PDF/Word). Evita el 504 "Outdated Optimize Dep" de Vite al hacer clic,
     // que hacía fallar la descarga en modo dev.
     optimizeDeps: {
-      include: ['file-saver', '@react-pdf/renderer', 'docx'],
+      include: ['file-saver', '@react-pdf/renderer', 'docx', 'pdfjs-dist'],
     },
   },
 });
