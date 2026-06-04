@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Download, FileText, FileType2, Printer, ChevronDown, Loader2 } from 'lucide-react';
 import type { Company, Quote } from '../lib/types';
 import { toast } from '../lib/toast';
+import { track } from '../lib/analytics';
 import { Button } from './ui';
 
 interface Props {
@@ -45,6 +46,7 @@ export default function Toolbar({ company, quote }: Props) {
       setBusy('pdf');
       const [blob, { saveAs }] = await Promise.all([buildPdfBlob(), import('file-saver')]);
       saveAs(blob, `${base}.pdf`);
+      track('descarga_pdf');
       toast.success('PDF descargado.');
     } catch (err) {
       console.error(err);
@@ -59,6 +61,7 @@ export default function Toolbar({ company, quote }: Props) {
     try {
       setBusy('print');
       const blob = await buildPdfBlob();
+      track('imprimir_pdf');
       const url = URL.createObjectURL(blob);
       const iframe = document.createElement('iframe');
       iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;';
@@ -98,6 +101,7 @@ export default function Toolbar({ company, quote }: Props) {
       ]);
       const blob = await buildDocxBlob(company, quote);
       saveAs(blob, `${base}.docx`);
+      track('descarga_word');
       toast.success('Word descargado.');
     } catch (err) {
       console.error(err);

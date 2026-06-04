@@ -40,6 +40,15 @@ const ogImage = Astro.site ? new URL('/og-image.png', Astro.site).href : '/og-im
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />
     <meta name="twitter:image" content={ogImage} />
+
+    <!-- Vercel Web Analytics: visitas + eventos personalizados, sin cookies.
+         El stub recibe eventos siempre; el script real se carga solo en
+         producción (en dev daría 404). Requiere "Web Analytics" habilitado en
+         el panel de Vercel del proyecto. -->
+    <script is:inline>
+      window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+    </script>
+    {import.meta.env.PROD && <script is:inline defer src="/_vercel/insights/script.js"></script>}
   </head>
   <body>
     <slot />
@@ -55,6 +64,7 @@ const ogImage = Astro.site ? new URL('/og-image.png', Astro.site).href : '/og-im
       window.addEventListener('appinstalled', () => {
         (window as any).__deferredInstallPrompt = null;
         window.dispatchEvent(new Event('pwa-installed'));
+        if (typeof (window as any).va === 'function') (window as any).va('event', { name: 'app_instalada' });
       });
 
       // Registra el service worker (solo en producción para no interferir con HMR).

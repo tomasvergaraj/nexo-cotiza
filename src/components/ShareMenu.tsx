@@ -3,6 +3,7 @@ import { Share2, Link2, ChevronDown, Loader2 } from 'lucide-react';
 import type { Company, Quote } from '../lib/types';
 import { buildShareLink } from '../lib/share';
 import { toast } from '../lib/toast';
+import { track } from '../lib/analytics';
 import { Button } from './ui';
 
 interface Props {
@@ -29,6 +30,7 @@ export default function ShareMenu({ company, quote }: Props) {
       setBusy(true);
       const { url, logoOmitido } = await buildShareLink(company, quote);
       await navigator.clipboard.writeText(url);
+      track('compartir_enlace');
       toast.success(logoOmitido ? 'Enlace copiado (sin el logo, por tamaño).' : 'Enlace copiado al portapapeles.');
     } catch {
       toast.error('No se pudo copiar el enlace. Intenta de nuevo.');
@@ -45,6 +47,7 @@ export default function ShareMenu({ company, quote }: Props) {
       const nombre = quote.cliente.nombre ? ` para ${quote.cliente.nombre}` : '';
       const msg = `Te comparto una cotización${nombre}:\n${url}`;
       window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank', 'noopener');
+      track('compartir_whatsapp');
       if (logoOmitido) toast.info('El enlace no incluye el logo por su tamaño.');
     } catch {
       toast.error('No se pudo generar el enlace.');

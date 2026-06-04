@@ -9,6 +9,7 @@ import {
   exportBackup, isBackup, setFolioSeq, putQuote, restoreQuotes, restoreCatalog, requestPersistence, clearAllData,
 } from '../lib/storage';
 import { toast } from '../lib/toast';
+import { track } from '../lib/analytics';
 import { readShareFromHash, clearShareHash } from '../lib/share';
 import CompanyPanel from './CompanyPanel';
 import ClientPanel from './ClientPanel';
@@ -121,6 +122,7 @@ export default function QuoteEditor() {
 
   function handleSaveCompany() {
     saveCompany(company);
+    track('empresa_guardada');
     setSavedBadge(true);
     setTimeout(() => setSavedBadge(false), 2000);
   }
@@ -143,6 +145,7 @@ export default function QuoteEditor() {
     const estado: QuoteStatus = current?.estado ?? 'borrador';
     const rec: SavedQuote = { id, estado, updatedAt: new Date().toISOString(), company, quote };
     await putQuote(rec);
+    track('cotizacion_guardada', { nueva: !current });
     setCurrent({ id, estado });
     setDirty(false);
     setHistoryReload((n) => n + 1);
