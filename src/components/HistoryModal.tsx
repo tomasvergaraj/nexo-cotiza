@@ -24,7 +24,7 @@ interface Props {
 const ESTADOS: { value: QuoteStatus; label: string; dot: string }[] = [
   { value: 'borrador', label: 'Borrador', dot: 'bg-gray/50' },
   { value: 'enviada', label: 'Enviada', dot: 'bg-blue' },
-  { value: 'aceptada', label: 'Aceptada', dot: 'bg-[#16A34A]' },
+  { value: 'aceptada', label: 'Aceptada', dot: 'bg-success' },
   { value: 'rechazada', label: 'Rechazada', dot: 'bg-danger' },
 ];
 const dotOf = (e: QuoteStatus) => ESTADOS.find((x) => x.value === e)?.dot ?? 'bg-gray/50';
@@ -54,11 +54,16 @@ export default function HistoryModal({ open, currentId, reloadKey, onClose, onOp
   const refresh = () => listQuotes().then(setItems);
 
   async function handleDelete(rec: SavedQuote) {
-    const nombre = rec.quote.cliente.nombre || `Folio ${rec.quote.folio || 's/n'}`;
-    if (!confirm(`¿Eliminar la cotización "${nombre}" del historial? No se puede deshacer.`)) return;
+    // Borrado optimista con "Deshacer" (en vez de un confirm() bloqueante):
+    // si el usuario no deshace, el registro simplemente queda eliminado.
     await deleteQuoteRec(rec.id);
     await refresh();
-    toast.success('Cotización eliminada del historial.');
+    toast.info('Cotización eliminada del historial.', {
+      action: {
+        label: 'Deshacer',
+        onClick: async () => { await putQuote(rec); await refresh(); },
+      },
+    });
   }
 
   async function handleDuplicate(rec: SavedQuote) {
@@ -101,9 +106,9 @@ export default function HistoryModal({ open, currentId, reloadKey, onClose, onOp
             </div>
           ) : items.length === 0 ? (
             <div className="flex h-full flex-col items-center justify-center px-6 py-12 text-center">
-              <FileClock className="mb-3 h-10 w-10 text-gray/40" />
+              <FileClock className="mb-3 h-10 w-10 text-gray" />
               <p className="text-[14px] font-semibold text-ink">Aún no guardas cotizaciones</p>
-              <p className="mt-1 max-w-sm text-[13px] text-gray">
+              <p className="mt-1 max-w-sm text-[13px] text-muted">
                 Usa <b className="text-ink">Guardar</b> en la barra para añadir la cotización actual al historial.
                 Se guarda en este navegador.
               </p>
