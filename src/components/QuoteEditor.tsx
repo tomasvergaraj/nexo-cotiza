@@ -146,6 +146,20 @@ export default function QuoteEditor() {
     try { localStorage.setItem('nexocotiza:onboarded', '1'); } catch { /* noop */ }
   }
 
+  // Atajo de teclado: Ctrl/Cmd+S guarda la cotización en el historial.
+  useEffect(() => {
+    if (!ready) return;
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        handleSaveToHistory();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, company, quote, current]);
+
   const totals = computeTotals(quote);
 
   function handleSaveCompany() {
@@ -295,7 +309,7 @@ export default function QuoteEditor() {
   }
 
   return (
-    <div className="mx-auto max-w-[1280px] px-4 pb-16">
+    <div className="mx-auto max-w-[1280px] px-4 pb-24 lg:pb-16">
       {/* Barra de acciones */}
       <div className="sticky top-0 z-10 -mx-4 mb-6 border-b border-line bg-paper/85 px-4 py-3 backdrop-blur">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -327,7 +341,10 @@ export default function QuoteEditor() {
           </div>
           <div className="flex items-center gap-2">
             <ShareMenu company={company} quote={quote} />
-            <Toolbar company={company} quote={quote} />
+            {/* En móvil la descarga vive en la barra inferior (zona del pulgar). */}
+            <div className="hidden lg:block">
+              <Toolbar company={company} quote={quote} />
+            </div>
           </div>
         </div>
       </div>
@@ -387,12 +404,14 @@ export default function QuoteEditor() {
         </div>
       </div>
 
-      {/* Vista previa en móvil: botón que abre un modal a pantalla completa */}
-      <div className="mt-6 text-center lg:hidden">
-        <Button variant="primary" onClick={() => setShowPreview(true)}>
-          <Eye className="h-4 w-4" /> Ver vista previa
+      {/* Barra inferior fija en móvil: acciones primarias en la zona del pulgar. */}
+      <div className="fixed inset-x-0 bottom-0 z-40 flex items-center gap-2 border-t border-line bg-paper/95 px-4 py-3 backdrop-blur lg:hidden">
+        <Button variant="soft" className="flex-1 justify-center" onClick={() => setShowPreview(true)}>
+          <Eye className="h-4 w-4" /> Vista previa
         </Button>
-        <p className="mt-2 text-[12px] text-muted">O usa el botón <b>Descargar</b> arriba.</p>
+        <div className="flex-1">
+          <Toolbar company={company} quote={quote} openUp />
+        </div>
       </div>
 
       {showPreview && (

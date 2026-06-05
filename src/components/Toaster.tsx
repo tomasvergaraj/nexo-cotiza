@@ -32,6 +32,14 @@ export default function Toaster() {
           >
             <Icon className={`mt-0.5 h-5 w-5 shrink-0 ${accent[t.type]}`} aria-hidden />
             <p className="flex-1 text-[13px] text-ink">{t.msg}</p>
+            {t.action && (
+              <button
+                onClick={() => { t.action!.onClick(); dismiss(t.id); }}
+                className="-my-0.5 shrink-0 rounded-md px-2 py-1 text-[13px] font-semibold text-blue transition hover:bg-blue/10"
+              >
+                {t.action.label}
+              </button>
+            )}
             <button
               onClick={() => dismiss(t.id)}
               className="-mr-1 rounded-md p-0.5 text-gray transition hover:text-ink"

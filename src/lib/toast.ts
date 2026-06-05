@@ -4,10 +4,19 @@
 import { useSyncExternalStore } from 'react';
 
 export type ToastType = 'success' | 'error' | 'info';
+export interface ToastAction {
+  label: string;
+  onClick: () => void;
+}
 export interface ToastItem {
   id: number;
   type: ToastType;
   msg: string;
+  action?: ToastAction;
+}
+export interface ToastOptions {
+  ttl?: number;
+  action?: ToastAction;
 }
 
 let items: ToastItem[] = [];
@@ -18,9 +27,11 @@ function emit() {
   for (const fn of subscribers) fn();
 }
 
-function push(type: ToastType, msg: string, ttl = 3500) {
+function push(type: ToastType, msg: string, opts: ToastOptions = {}) {
+  // Un toast con acción (p. ej. "Deshacer") vive un poco más para dar tiempo a reaccionar.
+  const { ttl = opts.action ? 6000 : 3500, action } = opts;
   const id = ++seq;
-  items = [...items, { id, type, msg }];
+  items = [...items, { id, type, msg, action }];
   emit();
   setTimeout(() => dismiss(id), ttl);
   return id;
@@ -32,9 +43,9 @@ export function dismiss(id: number) {
 }
 
 export const toast = {
-  success: (msg: string) => push('success', msg),
-  error: (msg: string) => push('error', msg),
-  info: (msg: string) => push('info', msg),
+  success: (msg: string, opts?: ToastOptions) => push('success', msg, opts),
+  error: (msg: string, opts?: ToastOptions) => push('error', msg, opts),
+  info: (msg: string, opts?: ToastOptions) => push('info', msg, opts),
 };
 
 export function useToasts(): ToastItem[] {

@@ -21,7 +21,11 @@ const GRID_ROW = 'md:grid-cols-[1fr_52px_60px_100px_48px_100px_152px]';
 export default function ItemsTable({ items, moneda, onChange }: Props) {
   const update = (id: string, patch: Partial<QuoteItem>) =>
     onChange(items.map((it) => (it.id === id ? { ...it, ...patch } : it)));
-  const remove = (id: string) => onChange(items.filter((it) => it.id !== id));
+  const remove = (id: string) => {
+    const prev = items; // snapshot para poder deshacer
+    onChange(items.filter((it) => it.id !== id));
+    toast.info('Ítem eliminado.', { action: { label: 'Deshacer', onClick: () => onChange(prev) } });
+  };
   const add = () => onChange([...items, emptyItem()]);
 
   const duplicate = (i: number) => {

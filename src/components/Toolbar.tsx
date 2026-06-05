@@ -8,6 +8,8 @@ import { Button } from './ui';
 interface Props {
   company: Company;
   quote: Quote;
+  /** Abre el menu hacia arriba (para la barra inferior fija en movil). */
+  openUp?: boolean;
 }
 
 function slug(s: string): string {
@@ -16,7 +18,7 @@ function slug(s: string): string {
     .replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase().slice(0, 32);
 }
 
-export default function Toolbar({ company, quote }: Props) {
+export default function Toolbar({ company, quote, openUp = false }: Props) {
   const [busy, setBusy] = useState<'pdf' | 'docx' | 'print' | null>(null);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -31,6 +33,22 @@ export default function Toolbar({ company, quote }: Props) {
     document.addEventListener('keydown', onKey);
     return () => { document.removeEventListener('mousedown', onDoc); document.removeEventListener('keydown', onKey); };
   }, [open]);
+
+  // Atajo: Ctrl/Cmd+Enter descarga el PDF (la exportacion mas comun).
+  // Solo lo registra la instancia principal (no la barra movil) para no
+  // disparar la descarga dos veces.
+  useEffect(() => {
+    if (openUp) return;
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        if (busy === null) downloadPdf();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openUp, busy, company, quote]);
 
   // El motor PDF se carga solo al exportar/imprimir (no en la carga inicial).
   async function buildPdfBlob(): Promise<Blob> {
@@ -114,8 +132,8 @@ export default function Toolbar({ company, quote }: Props) {
   const item = 'flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-[13px] font-medium text-ink transition hover:bg-paper';
 
   return (
-    <div className="relative" ref={ref}>
-      <Button variant="primary" onClick={() => setOpen((o) => !o)} disabled={busy !== null} aria-haspopup="menu" aria-expanded={open}>
+    <div className={`relative ${openUp ? 'w-full' : ''}`} ref={ref}>
+      <Button variant="primary" className={openUp ? 'w-full justify-center' : ''} onClick={() => setOpen((o) => !o)} disabled={busy !== null} aria-haspopup="menu" aria-expanded={open}>
         {busy !== null ? (
           <><Loader2 className="h-4 w-4 animate-spin" /> Generando…</>
         ) : (
@@ -124,7 +142,7 @@ export default function Toolbar({ company, quote }: Props) {
       </Button>
 
       {open && (
-        <div role="menu" className="absolute right-0 z-30 mt-2 w-48 overflow-hidden rounded-xl border border-line bg-white shadow-lg">
+        <div role="menu" className={`absolute right-0 z-30 w-48 overflow-hidden rounded-xl border border-line bg-white shadow-lg ${openUp ? 'bottom-full mb-2' : 'mt-2'}`}>
           <button role="menuitem" onClick={() => { setOpen(false); downloadPdf(); }} className={item}>
             <FileText className="h-4 w-4 text-blue" /> Descargar PDF
           </button>
