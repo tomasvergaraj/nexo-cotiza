@@ -4,6 +4,7 @@ import type { Company, Quote } from '../lib/types';
 import { buildShareLink } from '../lib/share';
 import { toast } from '../lib/toast';
 import { track } from '../lib/analytics';
+import { useMenuKeyboard } from '../lib/useMenuKeyboard';
 import { Button } from './ui';
 
 interface Props {
@@ -15,6 +16,7 @@ export default function ShareMenu({ company, quote }: Props) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  useMenuKeyboard(ref, open, () => setOpen(false));
 
   useEffect(() => {
     if (!open) return;

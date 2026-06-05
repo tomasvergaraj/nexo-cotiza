@@ -3,6 +3,7 @@ import { Download, FileText, FileType2, Printer, ChevronDown, Loader2 } from 'lu
 import type { Company, Quote } from '../lib/types';
 import { toast } from '../lib/toast';
 import { track } from '../lib/analytics';
+import { useMenuKeyboard } from '../lib/useMenuKeyboard';
 import { Button } from './ui';
 
 interface Props {
@@ -22,6 +23,7 @@ export default function Toolbar({ company, quote, openUp = false }: Props) {
   const [busy, setBusy] = useState<'pdf' | 'docx' | 'print' | null>(null);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  useMenuKeyboard(ref, open, () => setOpen(false));
   const base = `Cotizacion-${quote.folio || 's-n'}${quote.cliente.nombre ? '-' + slug(quote.cliente.nombre) : ''}`;
 
   // Cerrar el menú al hacer clic fuera o con Escape.
