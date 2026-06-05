@@ -114,8 +114,10 @@ export async function buildDocxBlob(company: Company, quote: Quote): Promise<Blo
     para([txt('COTIZACIÓN', { bold: true, size: 16, color: BLUE })], AlignmentType.RIGHT),
     para([txt('N° ', { color: GRAY, size: 9 }), txt(quote.folio, { bold: true, color: INK, size: 9 })], AlignmentType.RIGHT),
     para([txt(`Fecha: ${formatFechaLarga(quote.fecha)}`, { color: GRAY, size: 8.5 })], AlignmentType.RIGHT),
-    para([txt(`Válida hasta: ${formatFechaLarga(quote.validaHasta)}`, { color: GRAY, size: 8.5 })], AlignmentType.RIGHT),
   ];
+  if (quote.validaHasta) {
+    docInfo.push(para([txt(`Válida hasta: ${formatFechaLarga(quote.validaHasta)}`, { color: GRAY, size: 8.5 })], AlignmentType.RIGHT));
+  }
 
   body.push(
     new Table({

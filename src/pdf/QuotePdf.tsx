@@ -79,6 +79,7 @@ const s = StyleSheet.create({
   // Footer
   footer: { position: 'absolute', bottom: 26, left: 42, right: 42, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: LINE, paddingTop: 8 },
   footerText: { color: GRAY, fontSize: 7.5 },
+  footerPage: { color: GRAY, fontSize: 7.5, textAlign: 'center' },
   footerBrand: { color: GRAY, fontSize: 7.5 },
   footerBrandStrong: { color: BLUE, fontWeight: 700 },
 });
@@ -140,7 +141,9 @@ export function QuotePdf({ company, quote }: QuotePdfProps) {
               N° <Text style={s.docMetaStrong}>{quote.folio}</Text>
             </Text>
             <Text style={s.docMeta}>Fecha: {formatFechaLarga(quote.fecha)}</Text>
-            <Text style={s.docMeta}>Válida hasta: {formatFechaLarga(quote.validaHasta)}</Text>
+            {quote.validaHasta ? (
+              <Text style={s.docMeta}>Válida hasta: {formatFechaLarga(quote.validaHasta)}</Text>
+            ) : null}
           </View>
         </View>
 
@@ -256,6 +259,10 @@ export function QuotePdf({ company, quote }: QuotePdfProps) {
         {/* Footer */}
         <View style={s.footer} fixed>
           <Text style={s.footerText}>{company.razonSocial || 'Cotización'} · {formatFechaLarga(quote.fecha)}</Text>
+          <Text
+            style={s.footerPage}
+            render={({ pageNumber, totalPages }) => (totalPages > 1 ? `Página ${pageNumber} de ${totalPages}` : '')}
+          />
           <Text style={s.footerBrand}>
             Generado con <Text style={s.footerBrandStrong}>NexoCotiza</Text>
           </Text>
