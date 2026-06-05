@@ -17,7 +17,11 @@ export default function Toaster() {
   if (items.length === 0) return null;
 
   return (
-    <div className="pointer-events-none fixed bottom-4 left-1/2 z-[60] flex w-full max-w-sm -translate-x-1/2 flex-col gap-2 px-4 sm:left-auto sm:right-4 sm:translate-x-0">
+    <div
+      aria-live="polite"
+      aria-atomic="false"
+      className="pointer-events-none fixed bottom-4 left-1/2 z-[60] flex w-full max-w-sm -translate-x-1/2 flex-col gap-2 px-4 sm:left-auto sm:right-4 sm:translate-x-0"
+    >
       {items.map((t) => {
         const Icon = icon[t.type];
         return (

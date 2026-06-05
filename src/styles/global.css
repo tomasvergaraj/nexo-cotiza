@@ -11,6 +11,7 @@
   --color-muted: #565C64;
   --color-line: #D9D5CB;
   --color-danger: #DC2626;
+  --color-warning: #D97706;
 
   --font-sora: "Sora", ui-sans-serif, system-ui, sans-serif;
   --font-manrope: "Manrope", ui-sans-serif, system-ui, sans-serif;
@@ -30,4 +31,18 @@ body {
   background: var(--color-paper);
   color: var(--color-ink);
   -webkit-font-smoothing: antialiased;
+}
+
+/* Accesibilidad: respeta a quien pide menos movimiento (skeletons animate-pulse,
+   transiciones, backdrop-blur del sticky). Neutraliza animación y transición sin
+   romper el layout. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

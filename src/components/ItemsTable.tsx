@@ -226,9 +226,9 @@ export default function ItemsTable({ items, moneda, onChange }: Props) {
             <div className="min-h-0 flex-1 overflow-y-auto p-4">
               {catalog.length === 0 ? (
                 <div className="flex h-full flex-col items-center justify-center px-6 py-12 text-center">
-                  <Library className="mb-3 h-10 w-10 text-gray/40" />
+                  <Library className="mb-3 h-10 w-10 text-gray" />
                   <p className="text-[14px] font-semibold text-ink">Tu catálogo está vacío</p>
-                  <p className="mt-1 max-w-sm text-[13px] text-gray">
+                  <p className="mt-1 max-w-sm text-[13px] text-muted">
                     Guarda los productos o servicios que cotizas seguido con el ícono <BookmarkPlus className="inline h-3.5 w-3.5" /> de cada ítem y reutilízalos aquí.
                   </p>
                 </div>

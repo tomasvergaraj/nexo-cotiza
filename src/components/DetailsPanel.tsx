@@ -52,7 +52,7 @@ export default function DetailsPanel({ quote, totals, onChange }: Props) {
           <Field label="N° de folio">
             <Input value={quote.folio} onChange={(e) => set({ folio: e.target.value })} placeholder="0001" />
           </Field>
-          <Field label="Moneda">
+          <Field label="Moneda" hint="Moneda de la cotización. Con UF o USD puedes mostrar la equivalencia aproximada en pesos.">
             <Select
               value={quote.moneda}
               onChange={(e) => set({ moneda: e.target.value as Moneda, ...(e.target.value === 'CLP' ? { valorMoneda: 0 } : {}) })}
@@ -83,7 +83,7 @@ export default function DetailsPanel({ quote, totals, onChange }: Props) {
               </span>
             </Field>
           )}
-          <Field label="IVA">
+          <Field label="IVA" hint="Marca 'Afecto' para sumar el IVA al neto. Desmárcalo si la cotización es exenta.">
             <div className="flex items-center gap-3 pt-1">
               <label className="flex items-center gap-2 text-[13px] text-ink">
                 <input
@@ -96,7 +96,7 @@ export default function DetailsPanel({ quote, totals, onChange }: Props) {
               </label>
             </div>
           </Field>
-          <Field label="Descuento global %">
+          <Field label="Descuento global %" hint="Descuento que se aplica sobre el total de la cotización, además de los descuentos por ítem.">
             <Input
               inputMode="numeric"
               className="text-right [font-variant-numeric:tabular-nums]"
@@ -105,7 +105,7 @@ export default function DetailsPanel({ quote, totals, onChange }: Props) {
               placeholder="0"
             />
           </Field>
-          <Field label={`Abono / anticipo (${quote.moneda})`}>
+          <Field label={`Abono / anticipo (${quote.moneda})`} hint="Monto ya pagado por el cliente. Se descuenta del total para mostrar el saldo pendiente.">
             <Input
               inputMode="decimal"
               className="text-right [font-variant-numeric:tabular-nums]"
@@ -117,7 +117,7 @@ export default function DetailsPanel({ quote, totals, onChange }: Props) {
           <Field label="Fecha de emisión">
             <Input type="date" value={quote.fecha} onChange={(e) => set({ fecha: e.target.value })} />
           </Field>
-          <Field label="Válida hasta">
+          <Field label="Válida hasta" hint="Fecha hasta la que el cliente puede aceptar estos precios. Debe ser igual o posterior a la emisión.">
             <Input
               type="date"
               min={quote.fecha}

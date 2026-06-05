@@ -12,3 +12,6 @@ node_modules/
 # os / editor
 .DS_Store
 *.log
+
+# impeccable: skill vendoreado (reinstalar con: npx impeccable skills install)
+.claude/skills/

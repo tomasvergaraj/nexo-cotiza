@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Eye, X, Save, FileClock } from 'lucide-react';
+import { Eye, X, Save, FileClock, Loader2, Check } from 'lucide-react';
 import type { Company, Quote, QuoteStatus, SavedQuote } from '../lib/types';
 import { emptyCompany } from '../lib/types';
 import { newQuote, demoQuote, newQuoteId } from '../lib/sample';
@@ -51,6 +51,10 @@ export default function QuoteEditor() {
   // ¿Hay cambios sin guardar respecto al registro abierto del historial?
   const [dirty, setDirty] = useState(false);
   const skipDirty = useRef(true); // ignora el cambio de estado tras cargar/abrir/guardar
+  // Estado visible del autoguardado del borrador local.
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle');
+  // Guía de primer uso (solo para usuarios nuevos, se descarta una vez).
+  const [showGuide, setShowGuide] = useState(false);
 
   // Crea una cotización nueva aplicando las condiciones por defecto de la empresa.
   function freshQuote(c: Company, folio = ''): Quote {
@@ -111,12 +115,36 @@ export default function QuoteEditor() {
   }, [quote, company, ready]);
 
   // Autoguardado del borrador (local). La empresa se guarda con el botón.
+  // Refleja el estado en un chip ("Guardando…" / "Guardado") para dar tranquilidad
+  // en un producto sin cuenta.
   useEffect(() => {
     if (!ready) return;
     if (firstSave.current) { firstSave.current = false; return; }
-    const t = setTimeout(() => saveDraft(quote), 600);
-    return () => clearTimeout(t);
+    setSaveState('saving');
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      await saveDraft(quote);
+      if (!cancelled) setSaveState('saved');
+    }, 600);
+    return () => { cancelled = true; clearTimeout(t); };
   }, [quote, ready]);
+
+  // Muestra la guía de primer uso solo a usuarios nuevos (sin empresa guardada,
+  // sin contenido y sin registro abierto), y solo si no la han descartado antes.
+  useEffect(() => {
+    if (!ready) return;
+    try {
+      const onboarded = localStorage.getItem('nexocotiza:onboarded');
+      if (!onboarded && !company.razonSocial && !hasContent(quote) && !current) setShowGuide(true);
+    } catch { /* localStorage no disponible: simplemente no mostramos la guía */ }
+    // Solo al quedar listo; no queremos que reaparezca al editar.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready]);
+
+  function dismissGuide() {
+    setShowGuide(false);
+    try { localStorage.setItem('nexocotiza:onboarded', '1'); } catch { /* noop */ }
+  }
 
   const totals = computeTotals(quote);
 
@@ -277,12 +305,24 @@ export default function QuoteEditor() {
             <span className="hidden h-5 w-px bg-line sm:inline" />
             <Button onClick={handleSaveToHistory} title="Guardar esta cotización en el historial">
               <Save className="h-4 w-4" /> {current ? 'Actualizar' : 'Guardar'}
-              {current && dirty && <span className="ml-0.5 h-2 w-2 rounded-full bg-[#D97706]" title="Cambios sin guardar" aria-label="Cambios sin guardar" />}
+              {current && dirty && <span className="ml-0.5 h-2 w-2 rounded-full bg-warning" title="Cambios sin guardar" aria-label="Cambios sin guardar" />}
             </Button>
             <Button variant="ghost" onClick={() => setShowHistory(true)} title="Ver el historial de cotizaciones">
               <FileClock className="h-4 w-4" /> Historial
             </Button>
             <InstallButton />
+            {saveState !== 'idle' && (
+              <span
+                className="hidden items-center gap-1.5 text-[12px] text-muted sm:inline-flex"
+                aria-live="polite"
+              >
+                {saveState === 'saving' ? (
+                  <><Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> Guardando…</>
+                ) : (
+                  <><Check className="h-3.5 w-3.5 text-blue" aria-hidden /> Guardado</>
+                )}
+              </span>
+            )}
             <input ref={importRef} type="file" accept="application/json,.json" onChange={handleImportFile} className="hidden" />
           </div>
           <div className="flex items-center gap-2">
@@ -295,6 +335,45 @@ export default function QuoteEditor() {
       {/* Dos columnas: formulario + vista previa */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,500px)]">
         <div className="flex flex-col gap-5">
+          {showGuide && (
+            <div className="rounded-xl border border-blue/30 bg-blue/5 p-5">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h2 className="font-sora text-[15px] font-semibold tracking-tight text-ink">
+                    ¿Primera vez? Así funciona
+                  </h2>
+                  <ol className="mt-3 grid gap-2.5 sm:grid-cols-2">
+                    {[
+                      'Completa los datos de tu empresa (se guardan para la próxima).',
+                      'Agrega los datos de tu cliente.',
+                      'Carga tus ítems con cantidades y precios.',
+                      'Descarga la cotización en PDF o Word.',
+                    ].map((paso, i) => (
+                      <li key={i} className="flex items-start gap-2.5 text-[13px] text-muted">
+                        <span className="mt-px flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blue text-[11px] font-bold text-white [font-variant-numeric:tabular-nums]">
+                          {i + 1}
+                        </span>
+                        {paso}
+                      </li>
+                    ))}
+                  </ol>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <Button variant="primary" onClick={() => { handleDemo(); dismissGuide(); }}>
+                      <Eye className="h-4 w-4" /> Ver un ejemplo
+                    </Button>
+                    <Button variant="ghost" onClick={dismissGuide}>Empezar de cero</Button>
+                  </div>
+                </div>
+                <button
+                  onClick={dismissGuide}
+                  aria-label="Cerrar la guía"
+                  className="-mr-1 -mt-1 rounded-md p-1 text-gray transition hover:bg-white/60 hover:text-ink"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          )}
           <CompanyPanel company={company} onChange={setCompany} onSaveLocal={handleSaveCompany} saved={savedBadge} />
           <ClientPanel client={quote.cliente} onChange={(cliente) => setQuote({ ...quote, cliente })} />
           <ItemsTable items={quote.items} moneda={quote.moneda} onChange={(items) => setQuote({ ...quote, items })} />
@@ -313,7 +392,7 @@ export default function QuoteEditor() {
         <Button variant="primary" onClick={() => setShowPreview(true)}>
           <Eye className="h-4 w-4" /> Ver vista previa
         </Button>
-        <p className="mt-2 text-[12px] text-gray">O usa el botón <b>Descargar</b> arriba.</p>
+        <p className="mt-2 text-[12px] text-muted">O usa el botón <b>Descargar</b> arriba.</p>
       </div>
 
       {showPreview && (

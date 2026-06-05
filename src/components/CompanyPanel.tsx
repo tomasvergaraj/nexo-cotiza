@@ -64,6 +64,8 @@ export default function CompanyPanel({ company, onChange, onSaveLocal, saved }: 
   return (
     <Section
       title="Tu empresa"
+      collapsible
+      defaultOpen={!company.razonSocial}
       action={
         <Button variant="ghost" onClick={onSaveLocal} title="Guardar en este navegador para próximas cotizaciones">
           {saved ? '✓ Guardada' : 'Guardar datos'}
@@ -86,8 +88,8 @@ export default function CompanyPanel({ company, onChange, onSaveLocal, saved }: 
           {company.logoDataUrl ? (
             <img src={company.logoDataUrl} alt="Logo de la empresa" className="max-h-full max-w-full object-contain" />
           ) : (
-            <span className="flex flex-col items-center gap-1 px-2 text-center text-[11px] text-gray">
-              <ImageUp className="h-5 w-5 text-gray/70" />
+            <span className="flex flex-col items-center gap-1 px-2 text-center text-[11px] text-muted">
+              <ImageUp className="h-5 w-5 text-gray" />
               Arrastra o sube tu logo
             </span>
           )}
