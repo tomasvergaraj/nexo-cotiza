@@ -11,6 +11,7 @@ import {
 import { toast } from '../lib/toast';
 import { track } from '../lib/analytics';
 import { readShareFromHash, clearShareHash } from '../lib/share';
+import { useFocusTrap } from '../lib/useFocusTrap';
 import CompanyPanel from './CompanyPanel';
 import ClientPanel from './ClientPanel';
 import ItemsTable from './ItemsTable';
@@ -42,6 +43,8 @@ export default function QuoteEditor() {
   const [savedBadge, setSavedBadge] = useState(false);
   const [ready, setReady] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const previewRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(previewRef, showPreview);
   const firstSave = useRef(true);
   const importRef = useRef<HTMLInputElement>(null);
   // Vínculo con el historial: el registro que estamos editando (si lo hay).
@@ -440,7 +443,7 @@ export default function QuoteEditor() {
 
       {showPreview && (
         <div className="fixed inset-0 z-50 flex flex-col bg-black/40 p-3 lg:hidden" onClick={() => setShowPreview(false)}>
-          <div role="dialog" aria-modal="true" aria-label="Vista previa" className="mx-auto flex h-full w-full max-w-[640px] flex-col" onClick={(e) => e.stopPropagation()}>
+          <div ref={previewRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label="Vista previa" className="mx-auto flex h-full w-full max-w-[640px] flex-col outline-none" onClick={(e) => e.stopPropagation()}>
             <div className="mb-2 flex justify-end">
               <Button variant="soft" onClick={() => setShowPreview(false)}>
                 <X className="h-4 w-4" /> Cerrar

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Plus, ChevronUp, ChevronDown, Copy, Trash2, BookmarkPlus, Library, X } from 'lucide-react';
 import type { CatalogItem, Moneda, QuoteItem } from '../lib/types';
 import { lineSubtotal } from '../lib/calc';
@@ -6,6 +6,7 @@ import { formatMoneda, formatMiles, parseDecimal } from '../lib/format';
 import { emptyItem, newId } from '../lib/sample';
 import { listCatalog, putCatalogItem, deleteCatalogItem } from '../lib/storage';
 import { toast } from '../lib/toast';
+import { useFocusTrap } from '../lib/useFocusTrap';
 import { Section, Input, Button } from './ui';
 
 interface Props {
@@ -54,6 +55,8 @@ export default function ItemsTable({ items, moneda, onChange }: Props) {
   // --- Catálogo ---
   const [showCatalog, setShowCatalog] = useState(false);
   const [catalog, setCatalog] = useState<CatalogItem[]>([]);
+  const catalogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(catalogRef, showCatalog);
 
   useEffect(() => {
     if (showCatalog) listCatalog().then(setCatalog);
@@ -212,10 +215,12 @@ export default function ItemsTable({ items, moneda, onChange }: Props) {
       {showCatalog && (
         <div className="fixed inset-0 z-50 flex flex-col bg-black/40 p-3" onClick={() => setShowCatalog(false)}>
           <div
+            ref={catalogRef}
+            tabIndex={-1}
             role="dialog"
             aria-modal="true"
             aria-label="Catálogo de ítems"
-            className="mx-auto flex h-full w-full max-w-[560px] flex-col overflow-hidden rounded-xl border border-line bg-paper shadow-2xl"
+            className="mx-auto flex h-full w-full max-w-[560px] flex-col overflow-hidden rounded-xl border border-line bg-paper shadow-2xl outline-none"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between border-b border-line bg-white px-5 py-3">

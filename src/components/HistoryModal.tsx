@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { X, FolderOpen, Copy, Trash2, Download, Upload, FileClock, ShieldX } from 'lucide-react';
 import type { QuoteStatus, SavedQuote } from '../lib/types';
 import { listQuotes, deleteQuoteRec, putQuote } from '../lib/storage';
@@ -6,6 +6,7 @@ import { computeTotals } from '../lib/calc';
 import { formatMoneda, formatFechaLarga } from '../lib/format';
 import { newQuoteId } from '../lib/sample';
 import { toast } from '../lib/toast';
+import { useFocusTrap } from '../lib/useFocusTrap';
 import { Button } from './ui';
 
 interface Props {
@@ -32,6 +33,8 @@ const dotOf = (e: QuoteStatus) => ESTADOS.find((x) => x.value === e)?.dot ?? 'bg
 export default function HistoryModal({ open, currentId, reloadKey, onClose, onOpen, onStatusChange, onExport, onImportClick, onClearAll }: Props) {
   const [items, setItems] = useState<SavedQuote[]>([]);
   const [loading, setLoading] = useState(true);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(dialogRef, open);
 
   useEffect(() => {
     if (!open) return;
@@ -82,10 +85,12 @@ export default function HistoryModal({ open, currentId, reloadKey, onClose, onOp
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-black/40 p-3" onClick={onClose}>
       <div
+        ref={dialogRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label="Historial de cotizaciones"
-        className="mx-auto flex h-full w-full max-w-[760px] flex-col overflow-hidden rounded-xl border border-line bg-paper shadow-2xl"
+        className="mx-auto flex h-full w-full max-w-[760px] flex-col overflow-hidden rounded-xl border border-line bg-paper shadow-2xl outline-none"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Encabezado */}
