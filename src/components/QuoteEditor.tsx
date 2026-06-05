@@ -55,6 +55,10 @@ export default function QuoteEditor() {
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle');
   // Guía de primer uso (solo para usuarios nuevos, se descarta una vez).
   const [showGuide, setShowGuide] = useState(false);
+  // Difiere el montaje del preview de escritorio (y con él el chunk del motor PDF,
+  // ~491 KB gzip) hasta que el hilo principal esté libre: el editor queda
+  // interactivo al instante y la vista previa entra después.
+  const [deferPreview, setDeferPreview] = useState(false);
 
   // Crea una cotización nueva aplicando las condiciones por defecto de la empresa.
   function freshQuote(c: Company, folio = ''): Quote {
@@ -159,6 +163,22 @@ export default function QuoteEditor() {
     return () => window.removeEventListener('keydown', onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, company, quote, current]);
+
+  // Cuando el editor queda listo, espera a que el navegador esté ocioso para
+  // montar el preview de escritorio (con timeout de respaldo de 2 s).
+  useEffect(() => {
+    if (!ready) return;
+    const w = window as unknown as {
+      requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
+      cancelIdleCallback?: (h: number) => void;
+    };
+    if (typeof w.requestIdleCallback === 'function') {
+      const h = w.requestIdleCallback(() => setDeferPreview(true), { timeout: 2000 });
+      return () => w.cancelIdleCallback?.(h);
+    }
+    const t = setTimeout(() => setDeferPreview(true), 1200);
+    return () => clearTimeout(t);
+  }, [ready]);
 
   const totals = computeTotals(quote);
 
@@ -398,9 +418,13 @@ export default function QuoteEditor() {
         </div>
 
         <div className="hidden lg:block">
-          <Suspense fallback={<div className="sticky top-[68px] flex h-[calc(100vh-84px)] items-center justify-center rounded-xl border border-line bg-white text-[12px] text-gray">Cargando vista previa…</div>}>
-            <Preview company={company} quote={quote} />
-          </Suspense>
+          {deferPreview ? (
+            <Suspense fallback={<div className="sticky top-[68px] h-[calc(100vh-84px)] animate-pulse rounded-xl border border-line bg-white/60 shadow-sm" />}>
+              <Preview company={company} quote={quote} />
+            </Suspense>
+          ) : (
+            <div className="sticky top-[68px] h-[calc(100vh-84px)] animate-pulse rounded-xl border border-line bg-white/60 shadow-sm" />
+          )}
         </div>
       </div>
 
