@@ -5,6 +5,10 @@ import { validateRut, formatRut } from '../lib/format';
 import { toast } from '../lib/toast';
 import { Section, Field, Input, TextArea, Button } from './ui';
 
+// Límite de tamaño del logo. Debe coincidir con lo informado al usuario en la UI.
+const MAX_LOGO_MB = 5;
+const MAX_LOGO_BYTES = MAX_LOGO_MB * 1024 * 1024;
+
 interface Props {
   company: Company;
   onChange: (c: Company) => void;
@@ -21,6 +25,13 @@ export default function CompanyPanel({ company, onChange, onSaveLocal, saved }: 
     if (!file) return;
     if (!file.type.startsWith('image/')) {
       toast.error('El logo debe ser una imagen (PNG, JPG…).');
+      return;
+    }
+    // Valida el tamaño ANTES de leer el archivo, para no cargar en memoria
+    // imágenes pesadas y para que lo informado coincida con lo aceptado.
+    if (file.size > MAX_LOGO_BYTES) {
+      const mb = (file.size / (1024 * 1024)).toFixed(1);
+      toast.error(`El logo pesa ${mb} MB y supera el máximo de ${MAX_LOGO_MB} MB. Usa una imagen más liviana.`);
       return;
     }
     const reader = new FileReader();
@@ -104,6 +115,7 @@ export default function CompanyPanel({ company, onChange, onSaveLocal, saved }: 
               <Trash2 className="h-4 w-4" /> Quitar
             </Button>
           )}
+          <span className="text-[11px] text-muted">PNG o JPG · máx {MAX_LOGO_MB} MB</span>
         </div>
       </div>
 
